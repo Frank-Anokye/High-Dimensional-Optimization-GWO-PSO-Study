@@ -1,4 +1,4 @@
-# Grey Wolf Optimizer vs. Particle Swarm Optimization: A Comparative Benchmarking Study
+# Navigating High-Dimensional Search Spaces: A Comparative Study of Stochastic Strategies for Complex Optimization Problems
 
 A from-scratch implementation of the Grey Wolf Optimizer (GWO; Mirjalili, Mirjalili & Lewis, 2014), extended with a matched Particle Swarm Optimization (PSO) baseline and a statistically grounded comparative benchmarking study across four standard continuous test functions.
 

@@ -2,7 +2,7 @@
 
 A from-scratch implementation of the Grey Wolf Optimizer (GWO; Mirjalili, Mirjalili & Lewis, 2014), extended with a matched Particle Swarm Optimization (PSO) baseline and a statistically grounded comparative benchmarking study across four standard continuous test functions.
 
-> **Honest scope note:** This repository does **not** propose a new optimization algorithm. It provides (1) a faithful, independently-verified re-implementation of the published GWO algorithm, and (2) a rigorous, statistically tested empirical comparison against a standard PSO baseline. Originally built as MSc coursework for *Optimization Methods in Engineering Applications* (April 2025), then extended into a full comparative study. See [`paper/paper.md`](paper/paper.md) for the full write-up.
+> **Honest scope note:** This repository does **not** propose a new optimization algorithm. It provides (1) a faithful, independently-verified re-implementation of the published GWO algorithm, and (2) a rigorous, statistically tested empirical comparison against a standard PSO baseline. Originally built as MSc coursework for *Optimization Methods in Engineering Applications* (April 2025), then extended into a full comparative study. See [`paper/paper.pdf`](paper/paper.pdf) for the full write-up.
 
 ---
 

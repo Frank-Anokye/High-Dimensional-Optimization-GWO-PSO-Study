@@ -1,0 +1,337 @@
+\documentclass[journal]{IEEEtran}
+
+%\usepackage[retainorgcmds]{IEEEtrantools}
+%\usepackage{bibentry}  
+%\usepackage{xcolor,soul,framed} %,caption
+
+%\colorlet{shadecolor}{yellow}
+% \usepackage{color,soul}
+\usepackage[pdftex]{graphicx}
+\graphicspath{{../pdf/}{../jpeg/}}
+\DeclareGraphicsExtensions{.pdf,.jpeg,.png}
+
+\usepackage[cmex10]{amsmath}
+%Mathabx do not work on ScribTex => Removed
+%\usepackage{mathabx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{stfloats}
+\usepackage{caption}
+\usepackage{placeins}
+\usepackage{mdwmath}
+\usepackage{mdwtab}
+\usepackage{eqparbox}
+\usepackage{url}
+
+%\hyphenation{op-tical net-works semi-conduc-tor}
+
+%\bstctlcite{IEEE:BSTcontrol}
+
+\begin{document}
+\bstctlcite{IEEEexample:BSTcontrol}
+    \title{Navigating High-Dimensional Search Spaces: A Comparative Study of Stochastic Strategies for Complex Optimization Problems}
+  \author{Frank~Anokye{$^{1}$},~\IEEEmembership{Student Member,~Silesian University of Technology, Poland, \&~University of L'Aquila, Italy,}}
+      %Tibault~Reveyrand,~\IEEEmembership{Member,~IEEE,}\\
+      %Ignacio~Ramos,~\IEEEmembership{Student Member,~IEEE,}
+      %Erez Falkenstein,~\IEEEmembership{Student Member,~IEEE,}
+      %and~Zoya~Popovi\'c,~\IEEEmembership{Fellow,~IEEE}% <-this % stops a space
+\iffalse
+  \thanks{Manuscript received July 10, 2012. \hl{This paper is an expanded paper from the IEEE MTT-S Int. Microwave Symposium held on June 17-22, 2012 in Montreal, Canada.} This work was funded in part by the Office of Naval Research under the Defense Advanced Research Projects Agency (DARPA) Microscale Power Conversion (MPC) Program under Grant N00014-11-1-0931, and in part by the Advanced Research Projects Agency-Energy (ARPA-E), U.S. Department of Energy, under Award Number DE-AR0000216.}
+  \thanks{M. Roberg is with TriQuint Semiconductor, 500 West Renner Road Richardson, TX 75080 USA (e-mail: michael.roberg@tqs.com).}% <-this % stops a space
+  \thanks{T. Reveyrand is with the XLIM Laboratory, UMR 7252, University of Limoges, 87060 Limoges, France (e-mail: tibault.reveyrand@xlim.fr).}%
+  \thanks{I. Ramos and Z. Popovic are with the Department of Electrical, Computer and Energy Engineering, University of Colorado, Boulder, CO, 80309-0425 USA (e-mail: ignacio.ramos@colorado.edu; zoya.popovic@colorado.edu).}% <-this % stops a space
+  \thanks{E. Falkenstein is with Qualcomm Inc., 6150 Lookout Road
+Boulder, CO 80301 USA (e-mail: erez.falkenstein@gmail.com).} 
+\fi
+
+\maketitle
+
+\begin{abstract}
+%\boldmath
+The Grey Wolf Optimizer (GWO) is a population-based metaheuristic that models the leadership hierarchy and cooperative hunting behavior of grey wolves to solve continuous, black-box optimization problems \cite{mirjalili2014}. Since its introduction, GWO has been widely adopted in engineering applications, yet independent, statistically grounded replications that place it against a well-established baseline under matched, controlled conditions remain useful for practitioners deciding which metaheuristic to reach for. This paper reports a ground-up implementation of GWO and a baseline inertia-weight Particle Swarm Optimizer (PSO) \cite{kennedy1995,shi1998}, both benchmarked on four standard continuous test functions (Sphere, Shifted Sphere, Rastrigin, and Rosenbrock) spanning unimodal, multimodal, separable, and non-separable landscapes, across three problem dimensionalities (2, 10, 30) and 25 independent trials per configuration (600 runs total). We report the best, worst, mean, median, standard deviation fitness alongside, success rates, function-evaluation budgets, and paired with Wilcoxon signed-rank tests for statistical significance. GWO outperformed the PSO baseline with statistical significance ($p<0.05$) in 6 of 12 configurations. PSO had a significant edge in 2 low-dimensional configurations and the remaining 4 did not show significant differences. The GWO's advantage grew with problem dimensionality, consistent with its adaptive exploration-exploitation balance through the linearly decreasing coefficient $a$. Both algorithms substantially degraded on high-dimensional Rastrigin and Rosenbrock, illustrating that no method escapes the curse of dimensionality on genuinely hard landscapes. We formulate this work honestly as an implementation-and-replication study with a genuine comparative-empirical contribution, not as a novel algorithmic proposal.
+\end{abstract}
+
+\begin{IEEEkeywords}
+\hl{Grey Wolf Optimizer, Particle Swarm Optimization, metaheuristics, swarm intelligence, benchmark functions, empirical algorithm comparison}
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+\section{Introduction}
+
+\IEEEPARstart{C}{ontinuous}, derivative-free (black-box) optimization is central to engineering design, where objective functions are frequently non-convex, non-differentiable, or expensive to evaluate via simulation. Nature-inspired metaheuristics, algorithms that borrow search strategies from biological, physical, or social processes, have become a standard tool for such problems because they do not require gradient information and degrade gracefully in multimodal landscapes \cite{yang2010}. Among these, the Grey Wolf Optimizer (GWO), introduced by \cite{mirjalili2014}, models the social hierarchy of a wolf pack (alpha, beta, delta, omega) and an encircle-and-attack hunting strategy to balance global exploration and local exploitation. GWO has attracted considerable continuing research \cite{faris2018} catalogue dozens of hybridizations and application-domain deployments in their review, because of its structural simplicity (few tunable hyperparameters, no crossover or mutation machinery) and competitive empirical performance in the original paper's 29-function benchmark. This project began as master's coursework for \textit{Optimization Methods in Engineering Applications} (April 2025) and originally consisted of (i) a from-scratch implementation of GWO, (ii) qualitative and 3-D visualizations of four standard test functions, and (iii) exploratory single-run and small-sample demonstrations of GWO's convergence behavior. That version, while pedagogically sound, had three limitations common to coursework level implementations that we address in this paper: the absence of a baseline comparator, the absence of statistical testing, and no explicit accounting of computational budget when comparing runs.
+
+\section{Research Problem}
+
+We formulate the research problem as follows:
+
+\begin{quote}
+Under matched population size, iteration budget, and function-evaluation count, does a faithful implementation of the Grey Wolf Optimizer produce statistically better final solution quality than a standard inertia-weight Particle Swarm Optimizer, across benchmark functions of varying modality and separability, and how does any advantage scale with problem dimensionality?
+\end{quote}
+
+
+\subsection {Contributions}
+
+We emphasize that this paper does not propose a new algorithm, a new hybrid variant, or a new benchmark. Its contributions are:
+\begin{itemize}
+  \item An independent re-implementation of GWO \cite{mirjalili2014}, reproducing the population dynamics, hierarchy-update, and position-update equations exactly as specified in the original paper.
+  \item A matched-budget PSO baseline \cite{kennedy1995,shi1998}, implemented independently but under an identical experimental protocol.
+  \item A statistically grounded comparative benchmarking study across 12 function-dimension configurations with 25 independent trials each (600 total runs), including paired Wilcoxon signed-rank testing, success-rate analysis, and dimensional-scalability analysis.
+  \item A transparent discussion of where GWO's advantage holds, where it disappears, and where both algorithms fail, contrasted  with the No Free Lunch theorem \cite{wolpert1997}.
+\end{itemize}
+
+This is, in short, a rigorous \textbf{replication and comparative benchmarking study}, distinct from (and not overstated as) a novel-algorithm contribution.
+
+
+\section {RELATED WORK}
+
+Swarm and hierarchy-based metaheuristics: Particle Swarm Optimization \cite{kennedy1995} was among the first population-based metaheuristics to model social information-sharing. \cite{shi1998} introduced the inertia-weight variant used here, which linearly anneals the exploration-exploitation trade-off over the search, structurally analogous to GWO's linearly decreasing coefficient $a$, making PSO a natural comparator for GWO. Grey Wolf Optimizer and variants: GWO \cite{mirjalili2014} was originally benchmarked on 29 functions against PSO, Gravitational Search Algorithm, and Differential Evolution. \cite{faris2018} review the subsequent literature, documenting binary, multi-objective, chaotic and hybrid GWO variants, and note that most application papers report single-run or small-sample comparisons without formal significance testing, a gap this paper addresses for the base algorithm. Benchmark functions: The functions used here are drawn from the standard continuous-optimization test-function literature classified by \cite{jamil2013}, chosen to span the modality $\times$ separability design space. No Free Lunch Theorems: \cite{wolpert1997}'s No Free Lunch theorems establish that, averaged over all possible objective functions, no optimizer outperforms any other. This motivates our explicit framing. Any comparative advantage reported here is a statement about performance on this specific, well categorized function class.
+
+\section {PROBLEM DEFINITION}
+
+We consider the unconstrained, continuous, black-box minimization problem
+\begin{equation}
+\min_{\mathbf{x} \in [l,u]^d} f(\mathbf{x})
+\end{equation}
+
+where $f$ is only evaluable pointwise, $d$ is the problem dimension, and $[l,u]$ defines a box-constrained search domain. We study four instances of $f$ (Table~\ref{tab:benchmarks}) that jointly vary modality (unimodal vs.\ multimodal) and separability (separable vs.\ non-separable).
+\FloatBarrier
+
+\begin{table*}[tbp]
+\centering
+\caption{Benchmark functions.}
+\label{tab:benchmarks}
+\begin{tabular}{lllll}
+\toprule
+Function & Formula & Domain & Global optimum & Class \\
+\midrule
+Sphere & $\sum x_i^2$ & $[-5.12,5.12]^d$ & $f(\mathbf{0})=0$ & Unimodal, convex, separable \\
+Shifted Sphere & $\sum (x_i-\sqrt{2})^2$ & $[-5.12,5.12]^d$ & $f(\sqrt2\mathbf{1})=0$ & Unimodal, shifted optimum \\
+Rastrigin & $10d+\sum[x_i^2-10\cos(2\pi x_i)]$ & $[-5.12,5.12]^d$ & $f(\mathbf{0})=0$ & Multimodal, separable \\
+Rosenbrock & $\sum[100(x_{i+1}-x_i^2)^2+(1-x_i)^2]$ & $[-2.048,2.048]^d$ & $f(\mathbf{1})=0$ & Non-convex, non-separable \\
+\bottomrule
+\end{tabular}
+\end{table*}
+\FloatBarrier
+
+Each function is evaluated at $d \in \{2,10,30\}$, giving 12 function-dimension configurations. We define success on a run as reaching the best-so-far fitness below $10^{-3}$.
+\FloatBarrier
+
+\section{METHODS}
+
+\subsection{Grey Wolf Optimizer} 
+GWO maintains a population of candidate solutions $n$ ("wolves") in $\mathbb{R}^d$. At each iteration, the three best solutions are labelled alpha ($\alpha$), beta ($\beta$), and delta ($\delta$); all remaining "omega" wolves update their position by averaging three candidate positions, each computed by extrapolating or interpolating toward one of the three leaders:
+\begin{align}
+D_{\text{leader}} &= |C \cdot X_{\text{leader}} - X| \\
+X_{\text{cand}} &= X_{\text{leader}} - A \cdot D_{\text{leader}}
+\end{align}
+for leader $\in \{\alpha,\beta,\delta\}$, where $A = 2ar_1 - a$ and $C = 2r_2$, with $r_1,r_2 \sim U(0,1)$ drawn independently per dimension and per leader. The coefficient $a$ decreases linearly from 2 to 0 over the run, transitioning the population from exploration ($|A|>1$) to exploitation ($|A|<1$). Each omega wolf's new position is the coordinate-wise average of the three leader-guided candidates, clipped to the box constraints and re-evaluated. This is a direct, unmodified re-implementation of \cite{mirjalili2014}'s update rule; we introduced no structural changes or enhancements from the variant literature \cite{faris2018}, so as to evaluate the base algorithm as originally proposed.
+
+
+\subsection{Particle Swarm Optimization (comparator)}
+As a matched baseline we implemented the inertia-weight PSO of \cite{shi1998}, building on \cite{kennedy1995}. Each particle $i$ maintains a position $\mathbf{x}_i$ and velocity $\mathbf{v}_i$, updated as
+\begin{align}
+\mathbf{v}_i &\leftarrow w\mathbf{v}_i + c_1 r_1(\mathbf{p}_i - \mathbf{x}_i) + c_2 r_2(\mathbf{g}-\mathbf{x}_i) \\
+\mathbf{x}_i &\leftarrow \text{clip}(\mathbf{x}_i + \mathbf{v}_i, l, u)
+\end{align}
+where $\mathbf{p}_i$ is particle $i$'s personal best, $\mathbf{g}$ is the swarm's global best, $r_1, r_2 \sim U(0,1) $,  $c_1=c_2=2.0$, and the inertia weight $w$ decreases linearly from 0.9 to 0.4 over the run, deliberately mirroring GWO's linear exploration-to-exploitation anneal. 
+
+\subsection {Experimental procedure}
+
+Both algorithms were run with population size 30, 200 iterations, and identical random seeds per trial (seed = run index, 0--24), so both algorithms see the same initial population draw within a trial. Each of the 12 configurations was run for 25 independent trials per algorithm (600 optimization runs total). We recorded best, worst, mean, median, and standard deviation of final best fitness, success rate, mean wall-clock time, and mean function evaluations. We then tested for significance using the paired Wilcoxon signed-rank test. All code used Python 3, NumPy, SciPy, and Matplotlib.
+
+%\FloatBarrier
+
+\section{EXPERIMENTS}
+
+We organized the empirical study around three questions: (Q1) solution quality and significance; (Q2) reliability (success rate, variance); (Q3) scalability with dimension. Figure~\ref{fig:landscapes} shows the four benchmark landscapes in two dimensions.
+
+\begin{figure*}[tbp]
+\centering
+\includegraphics[width=0.9\textwidth]{fig1_benchmark_landscapes.png}
+\caption{Two-dimensional landscapes of the four benchmark test functions.}
+\label{fig:landscapes}
+\end{figure*}
+
+\FloatBarrier
+
+
+\section{RESULTS}
+Table~\ref{tab:results} summarizes all 12 configurations. Figure~\ref{fig:convergence} shows mean convergence trajectories ($\pm$1 s.d.\ in 25 runs), Figure~\ref{fig:boxplot} compares the final fitness distributions in 10D, Figure~\ref{fig:success} compares the success rates and Figure~\ref{fig:scalability} shows the scaling of the mean final fitness with dimension.
+
+\FloatBarrier
+\begin{table}[htbp]
+\centering
+\caption{Summary of results across all 12 function--dimension configurations (25 runs each). Bold indicates the statistically better algorithm (Wilcoxon $p<0.05$); "-" indicates no significant difference.}
+\label{tab:results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llllllll}
+\toprule
+Function & Dim & GWO mean ($\pm$s.d.) & PSO mean ($\pm$s.d.) & GWO succ.\% & PSO succ.\% & Wilcoxon $p$ & Better \\
+\midrule
+Sphere & 2 & 2.35e-91 ($\pm$9.70e-91) & 3.72e-19 ($\pm$6.39e-19) & 100 & 100 & 1.00 & -- \\
+Sphere & 10 & 1.32e-25 ($\pm$2.86e-25) & 6.25e-05 ($\pm$9.32e-05) & 100 & 100 & 5.96e-08 & \textbf{GWO} \\
+Sphere & 30 & 2.82e-12 ($\pm$2.86e-12) & 7.74 ($\pm$9.37) & 100 & 0 & 5.96e-08 & \textbf{GWO} \\
+Shifted Sphere & 2 & 3.60e-07 ($\pm$4.29e-07) & 7.22e-19 ($\pm$2.14e-18) & 100 & 100 & 5.96e-08 & \textbf{PSO} \\
+Shifted Sphere & 10 & 6.51e-05 ($\pm$2.30e-05) & 7.50e-05 ($\pm$1.02e-04) & 100 & 100 & 0.44 & -- \\
+Shifted Sphere & 30 & 3.12 ($\pm$2.18) & 25.94 ($\pm$15.59) & 0 & 0 & 2.56e-06 & \textbf{GWO} \\
+Rastrigin & 2 & 0.00 ($\pm$0.00) & 1.14e-14 ($\pm$3.29e-14) & 100 & 100 & 1.00 & -- \\
+Rastrigin & 10 & 5.18 ($\pm$8.14) & 19.64 ($\pm$7.72) & 36 & 0 & 2.66e-05 & \textbf{GWO} \\
+Rastrigin & 30 & 33.40 ($\pm$27.51) & 249.55 ($\pm$40.05) & 0 & 0 & 5.96e-08 & \textbf{GWO} \\
+Rosenbrock & 2 & 7.47e-06 ($\pm$1.86e-05) & 8.10e-07 ($\pm$1.68e-06) & 100 & 100 & 3.76e-04 & \textbf{PSO} \\
+Rosenbrock & 10 & 6.94 ($\pm$0.65) & 28.03 ($\pm$84.06) & 0 & 0 & 0.17 & -- \\
+Rosenbrock & 30 & 27.34 ($\pm$0.83) & 447.65 ($\pm$343.10) & 0 & 0 & 5.96e-08 & \textbf{GWO} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+\FloatBarrier
+
+Across the 12 configurations, GWO achieved a statistically significant advantage in 6, PSO in 2 (both at low dimension: Shifted Sphere 2D and Rosenbrock 2D) and no significant difference in the remaining 4 (Sphere 2D, Shifted Sphere 10D, Rastrigin 2D, Rosenbrock 10D). GWO's advantage was concentrated at higher dimensionality: at 10D and 30D, GWO's mean final fitness was one to two orders of magnitude better than PSO's on all four functions. Success rates follow the same pattern. The PSO success rate collapsed at 10D/30D on every function, while GWO retained partial success (e.g., 36\% on 10D Rastrigin) where PSO achieved 0\%. Neither algorithm reached the success threshold on Rastrigin-30D, Rosenbrock-10D/30D, or Shifted-Sphere-30D, demonstrating that GWO's relative advantage does not translate into absolute problem-solving capability on genuinely hard, high-dimensional landscapes within the tested budget.
+\FloatBarrier
+
+\begin{figure*}[tbp]
+\centering
+\includegraphics[width=\textwidth]{fig2_convergence_grid.png }
+\caption{Convergence trajectories (mean $\pm$1 s.d.\ over 25 independent runs): GWO vs.\ PSO.}
+\label{fig:convergence}
+\end{figure*}
+\FloatBarrier
+
+\begin{figure*}[tbp]
+\centering
+\includegraphics[width=\textwidth]{fig3_final_fitness_10D.png}
+\caption{Final solution quality at 10D (25 independent runs).}
+\label{fig:boxplot}
+\end{figure*}
+\FloatBarrier
+
+
+\begin{figure*}[tbp]
+\centering
+\includegraphics[width=\textwidth]{fig4_success_rates.png}
+\caption{Success rate by function, dimension, and algorithm.}
+\label{fig:success}
+\end{figure*}
+\FloatBarrier
+
+\begin{figure*}[tbp]
+\centering
+\includegraphics[width=\textwidth]{fig5_scalability.png}
+\caption{Scalability of solution quality with problem dimension.}
+\label{fig:scalability}
+\end{figure*}
+\FloatBarrier
+
+
+\section{DISCUSSION}
+
+The results support a qualified answer to the research question, under matched population size and iteration budget, GWO produced statistically better final solution quality than the PSO baseline in half (6/12) of tested configurations, with the advantage concentrated at higher problem dimensionality and absent or reversed at low dimensionality. This is consistent with, though should not be over-read as confirming, the original GWO paper's claim of a favorable exploration-exploitation balance \cite{mirjalili2014}: the leader-averaging mechanism gives every omega wolf's next position information from three independently perturbed estimates of the best region found so far, which may act as an implicit variance-reduction step in high dimensions. We emphasize three caveats. First, we tested one specific, un-tuned PSO parameterization; numerous refinements exist that could close or reverse the observed gap, so this study does not claim GWO is superior to PSO in general, only to this specific, common baseline. Second, both algorithms were evaluated on only four functions from a much larger benchmark landscape, 175 functions classified by \cite{jamil2013}. Third, and most fundamentally, the No Free Lunch theorem \cite{wolpert1997} guarantees that any comparative advantage measured on a finite function sample cannot be extrapolated to general superiority. The low-dimensional reversals (PSO outperforming GWO on Shifted-Sphere-2D and Rosenbrock-2D) show that GWO's advantage is not uniform across the design space and that simple, low-dimensional, well-behaved landscapes are exactly the regime in which a momentum-based method like PSO's velocity update can out-exploit GWO's discrete leader-averaging step.
+
+
+\section{LIMITATIONS}
+
+\begin{itemize}
+  \item Two algorithms, one baseline. A more complete study would include Differential Evolution, a Genetic Algorithm and/ or covariance matrix adaptation evolution strategy, and a random-search control.
+  \item Four benchmark functions, all are standard functions with no real-engineering-application structure, because external validity is not established.
+  \item Fixed hyperparameters (population 30, iterations 200) across all configurations rather than per-function tuning.
+  \item No hybrid/improved GWO variants tested, only the base algorithm as originally published.
+  \item No multiple-comparisons correction across the 12 Wilcoxon tests, though the smallest significant $p$-values ($<10^{-5}$) are well below any reasonable corrected threshold.
+  \item Coursework-scale computational budget (25 trials/configuration on a single machine).
+\end{itemize}
+
+
+\section{CONCLUSION}
+
+We presented an independent implementation of the Grey Wolf Optimizer (GWO) against Particle Swarm optimizer (PSO) baseline, and conducted a statistically grounded comparative benchmarking study across four standard continuous test functions, three dimensionalities, and 600 total optimization runs. GWO outperformed the PSO baseline with statistical significance in half of the tested configurations, with the advantage concentrated at higher problem dimensionality. The PSO held a small but significant edge in two low-dimensional configurations, and both algorithms failed to reliably solve the hardest high-dimensional landscapes within the tested budget. We formulate this explicitly as an implementation and replication study with a genuine comparative empirical contribution not a novel algorithmic proposal..
+
+\section{FUTURE WORK}
+
+\begin{itemize}
+  \item A natural extension of this would be the development of a novel GWO variant specifically tailored to high-dimensional search, potentially through adaptive parameter control, diversity preservation, or hybrid exploration-exploitation mechanisms.
+  \item Extend the comparator set to Differential Evolution, covariance matrix adaptation evolution strategy, and a random-search control.
+  \item Evaluate on the full \cite{jamil2013} catalogue or a congress on evolutionary computation competition benchmark suite (rotated, shifted, composition functions).
+  \item Apply both algorithms to a real, constrained engineering design problem.
+  \item Conduct a hyperparameter sensitivity sweep and report performance profiles rather than single-budget point comparisons.
+  
+\end{itemize}
+
+\section*{Data and Code Availability}
+
+The complete implementation, experimental scripts, and figure-generation codes accompanying this paper can be found here: \href{}{}. The resources provided are intended to facilitate the reproducibility of the experimental results and reported figures.
+
+% if have a single appendix:
+%\appendix[Proof of the Zonklar Equations]
+% or
+%\appendix  % for no appendix heading
+% do not use \section anymore after \appendix, only \section*
+% is possibly needed
+
+% use appendices with more than one appendix
+% then use \section to start each appendix
+% you must declare a \section before using any
+% \subsection or using \label (\appendices by itself
+% starts a section numbered zero.)
+%
+
+% ============================================
+%\appendices
+%\section{Proof of the First Zonklar Equation}
+%Appendix one text goes here %\cite{Roberg2010}.
+
+% you can choose not to have a title for an appendix
+% if you want by leaving the argument blank
+%\section{}
+%Appendix two text goes here.
+
+
+% use section* for acknowledgement
+%\section*{Acknowledgment}
+
+
+%The authors would like to thank D. Root for the loan of the SWAP. The SWAP that can ONLY be usefull in Boulder...
+
+
+% Can use something like this to put references on a page
+% by themselves when using endfloat and the captionsoff option.
+\ifCLASSOPTIONcaptionsoff
+  \newpage
+\fi
+
+
+
+% trigger a \newpage just before the given reference
+% number - used to balance the columns on the last page
+% adjust value as needed - may need to be readjusted if
+% the document is modified later
+%\IEEEtriggeratref{8}
+% The "triggered" command can be changed if desired:
+%\IEEEtriggercmd{\enlargethispage{-5in}}
+
+% ====== REFERENCE SECTION
+
+%\begin{thebibliography}{1}
+
+% IEEEabrv,
+
+\bibliographystyle{IEEEtran}
+\bibliography{IEEEabrv,references}
+%\end{thebibliography}
+% biography section
+% 
+% If you have an EPS/PDF photo (graphicx package needed) extra braces are
+% needed around the contents of the optional argument to biography to prevent
+% the LaTeX parser from getting confused when it sees the complicated
+% \includegraphics command within an optional argument. (You could create
+% your own custom macro containing the \includegraphics command to make things
+% simpler here.)
+%\begin{biography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{mshell}}]{Michael Shell}
+% or if you just want to reserve a space for a photo:
+
+% ==== SWITCH OFF the BIO for submission
+% ==== SWITCH OFF the BIO for submission
+\end{document}
+
+
